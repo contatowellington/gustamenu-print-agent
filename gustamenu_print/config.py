@@ -11,8 +11,7 @@ from dataclasses import asdict, dataclass
 
 # Endpoint padrão da fila de impressão. É configurável pela tela de
 # Configurações; este é apenas o valor inicial sugerido.
-# TODO: confirmar o domínio definitivo do GustaMenu.
-DEFAULT_API_ENDPOINT = "https://borapede.com.br/api/print_jobs.php"
+DEFAULT_API_ENDPOINT = "https://gustamenu.com.br/api/print_jobs.php"
 
 APP_DIR_NAME = "GustaMenu"
 SUB_DIR_NAME = "PrintAgent"
