@@ -1,3 +1,0 @@
-# Sem dependências externas — o agente usa apenas a biblioteca padrão do Python:
-#   urllib, json, ctypes (winspool.drv), winreg, winsound, tkinter, threading.
-# Compatível com o Python já instalado, sem instalar pacotes nativos.

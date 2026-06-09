@@ -1,49 +1,45 @@
-; Instalador do GustaMenu Assistente de Impressao (Inno Setup).
-; Empacota o runtime Python enxuto + o app a partir de ..\build\stage
-; (gerado por build_installer.ps1). Instala em %LOCALAPPDATA% sem admin.
-
 #define MyAppName    "GustaMenu Assistente de Impressao"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.4.0"
 #define MyAppPublisher "GustaMenu"
+#define MyAppExeName "GustaMenu.PrintAgent.exe"
 
 [Setup]
-AppId={{C2A6F7D1-9E4B-4F3A-8C21-7A4E0B9D5C10}
+AppId={{A3F1C9D2-7B4E-4F6A-9C28-1D5E8B2A6F40}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-DefaultDirName={localappdata}\GustaMenu\PrintAgent\app_files
+SetupIconFile=..\gustamenu.ico
+DefaultDirName={autopf}\GustaMenu\Assistente de Impressao
 UsePreviousAppDir=no
+DefaultGroupName=GustaMenu
 DisableProgramGroupPage=yes
-DisableDirPage=yes
-PrivilegesRequired=lowest
 OutputDir=Output
 OutputBaseFilename=GustaMenu-PrintAgent-Setup-v{#MyAppVersion}
-Compression=lzma2
+Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
+PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64
-UninstallDisplayName={#MyAppName}
+UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Criar atalho na area de trabalho"; Flags: unchecked
-Name: "startup"; Description: "Iniciar com o Windows"; Flags: checkedonce
+Name: "desktopicon"; Description: "Criar atalho na area de trabalho"; GroupDescription: "Atalhos:"; Flags: unchecked
 
 [Files]
-Source: "..\build\stage\runtime\*"; DestDir: "{app}\runtime"; Flags: recursesubdirs createallsubdirs ignoreversion
-Source: "..\build\stage\app\*";     DestDir: "{app}\app";     Flags: recursesubdirs createallsubdirs ignoreversion
+; Executavel compilado pelo go build
+Source: "..\GustaMenu.PrintAgent.exe"; DestDir: "{app}"; Flags: ignoreversion
+; Icone necessario para a bandeja do sistema e o circulo flutuante
+Source: "..\gustamenu.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\GustaMenu Assistente de Impressao"; Filename: "{app}\runtime\pythonw.exe"; Parameters: """{app}\app\main.py"""; WorkingDir: "{app}\app"
-Name: "{autodesktop}\GustaMenu Assistente de Impressao"; Filename: "{app}\runtime\pythonw.exe"; Parameters: """{app}\app\main.py"""; WorkingDir: "{app}\app"; Tasks: desktopicon
-
-[Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "GustaMenuPrintAgent"; ValueData: """{app}\runtime\pythonw.exe"" ""{app}\app\main.py"""; Flags: uninsdeletevalue; Tasks: startup
+Name: "{group}\GustaMenu Assistente de Impressao"; Filename: "{app}\{#MyAppExeName}"
+Name: "{autodesktop}\GustaMenu Assistente de Impressao"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\runtime\pythonw.exe"; Parameters: """{app}\app\main.py"""; Description: "Abrir o GustaMenu Assistente de Impressao"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "Abrir GustaMenu Assistente de Impressao"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{app}"
+Type: filesandordirs; Name: "{userappdata}\GustaMenu\PrintAgent"

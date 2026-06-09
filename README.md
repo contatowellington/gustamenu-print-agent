@@ -1,71 +1,67 @@
-# GustaMenu — Assistente de Impressão (Python)
+# GustaMenu — Assistente de Impressão (Go)
 
-Agente desktop para Windows que monitora a fila de pedidos do GustaMenu,
-**imprime o cupom automaticamente** na impressora térmica e **toca um
-alarme sonoro** quando chega pedido novo. Roda na bandeja do sistema.
+Aplicação **oficial** de desktop (Windows) que supre o GustaMenu: busca os
+pedidos na fila de impressão, imprime o cupom na impressora térmica e avisa o
+lojista com **alarme sonoro + visual** quando chega pedido novo.
+
+Escrita em **Go** — gera um único `.exe`, sem runtime para instalar.
 
 ## Recursos
 
-- 🟠 **Widget flutuante** — círculo sempre-no-topo, arrastável, com contador de pedidos e status. Duplo-clique abre as configurações; botão direito abre o menu.
-- 🖨️ **Impressão automática** — busca pedidos no intervalo configurado e imprime sozinho (ESC/POS).
-- 🔔 **Alarme sonoro + visual** ao chegar pedido novo (o círculo pisca em vermelho "PEDIDO!" e toca o som; ligável/desligável, repetição configurável).
-- 🧾 Impressão térmica RAW via spooler do Windows (58/80 mm), texto em Latin1.
-- ⚙️ Tela de configuração (código do assistente, impressora, intervalo, alarme).
-- 🚀 Inicia com o Windows (registro).
-- 🔒 Instância única (mutex).
-
-## Estrutura
-
-```
-print-agent-python/
-├── main.py                     # entry point
-├── gustamenu_print/
-│   ├── config.py               # settings.json em %APPDATA%\GustaMenu\PrintAgent
-│   ├── api.py                  # fetch_jobs / report_job (urllib)
-│   ├── printer.py              # impressão RAW ESC/POS (ctypes → winspool.drv)
-│   ├── alarm.py                # alarme sonoro (winsound)
-│   ├── worker.py               # loop de polling + impressão automática
-│   ├── widget.py               # widget flutuante (círculo na tela)
-│   ├── settings_window.py      # tela de config (tkinter)
-│   ├── startup.py              # single-instance (ctypes) + autostart (winreg)
-│   └── app.py                  # orquestração + alarme som/visual
-├── requirements.txt            # (vazio — usa só a stdlib)
-├── build_installer.ps1         # gera o setup.exe (makecab + IExpress)
-└── installer/install.cmd       # rotina de instalação executada pelo setup
-```
-
-## Desenvolvimento
-
-Sem dependências externas — roda direto no Python instalado (inclusive
-3.15 alpha), pois usa apenas a biblioteca padrão.
-
-```bat
-py main.py
-```
-
-## Gerar instalador
-
-Usa apenas **ferramentas Microsoft** (`makecab` + `IExpress`, já no Windows).
-O runtime Python é embutido enxuto, então o lojista **não precisa ter Python**.
-
-```powershell
-powershell -ExecutionPolicy Bypass -File build_installer.ps1 -Version 1.0.0
-```
-
-Saída: `installer\Output\GustaMenu-PrintAgent-Setup-v1.0.0.exe` (~12 MB).
-Instala em `%LOCALAPPDATA%\GustaMenu\PrintAgent` (sem admin), cria atalhos
-e configura o início automático com o Windows.
+- **Círculo flutuante (GARNET)** sempre-no-topo, arrastável, mostrando o
+  contador de pedidos e o status. Pisca em vermelho (**"PEDIDO! NOVO"**) quando
+  chega pedido.
+- **Ícone na bandeja**, ao lado do relógio, com menu (Configurar, Imprimir
+  teste, Silenciar alarme, Abrir log, Sair).
+- **Alarme intermitente** ao chegar pedido novo. Toca em loop até ser
+  silenciado (clique no círculo ou menu **Silenciar**) ou até o limite de
+  segundos configurado (padrão **60s**).
+- **Impressão automática** em background com reporte de status à API.
+- **Inicia com o Windows** (opcional).
+- Instância única (não abre duas vezes).
 
 ## Configuração
 
-Gravada em `%APPDATA%\GustaMenu\PrintAgent\settings.json`:
+Pelo círculo (duplo-clique / menu **Configurar…**) ou pelo menu da bandeja:
 
-| Campo | Descrição |
-|-------|-----------|
-| `api_endpoint` | URL da fila de impressão |
-| `device_token` | código do assistente (contém o ID da loja) |
-| `printer_name` | impressora (vazio = padrão do Windows) |
-| `poll_seconds` | intervalo de checagem (3–60) |
-| `start_with_windows` | iniciar junto com o Windows |
-| `alarm_enabled` | alarme sonoro ligado |
-| `alarm_repeat` | repetições do alarme (1–10) |
+- Código do assistente (token do dispositivo)
+- Endpoint da API (padrão `https://gustamenu.com.br/api/print_jobs.php`)
+- Impressora térmica
+- Intervalo de consulta (3–60 s)
+- Alarme sonoro ligado/desligado e duração (5–600 s)
+- Iniciar com o Windows
+
+As preferências ficam em `%APPDATA%\GustaMenu\PrintAgent\settings.json`.
+
+## Compilar
+
+Pré-requisitos: Go 1.21+ e (opcional) Inno Setup 6 para o instalador.
+
+```bat
+build.bat
+```
+
+Gera `GustaMenu.PrintAgent.exe` e, se o Inno Setup estiver instalado, o
+instalador em `installer\Output\`.
+
+Manualmente:
+
+```bat
+set GOOS=windows
+set GOARCH=amd64
+set CGO_ENABLED=0
+go build -ldflags="-s -w -H windowsgui" -o GustaMenu.PrintAgent.exe .
+```
+
+## Instalador
+
+O script `installer\gustamenu.iss` (Inno Setup) empacota o `.exe` + ícone,
+cria atalhos e configura a desinstalação. Para gerar:
+
+```bat
+iscc installer\gustamenu.iss
+```
+
+## Versão
+
+1.4.0

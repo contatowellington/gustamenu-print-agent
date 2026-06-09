@@ -1,24 +1,4 @@
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-env/
-
-# PyInstaller
-build/
-dist/
-*.spec.bak
-
-# Inno Setup
+*.exe
+*.syso
 installer/Output/
-
-# IExpress (lixo de build)
-setup.inf
-setup.rpt
-
-# Local / segredos
-settings.json
-*.log
 *.bak-*
