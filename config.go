@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Config armazena as configurações do assistente de impressão GustaMenu.
@@ -91,6 +92,11 @@ func loadConfig() (Config, error) {
 	}
 
 	if cfg.APIEndpoint == "" {
+		cfg.APIEndpoint = defaultConfig().APIEndpoint
+	}
+	// Migra endpoints do domínio antigo (borapede.com.br tem certificado TLS
+	// de outro domínio e não responde) para o novo gustamenu.com.br.
+	if strings.Contains(cfg.APIEndpoint, "borapede.com.br") {
 		cfg.APIEndpoint = defaultConfig().APIEndpoint
 	}
 	if cfg.AlarmSeconds == 0 {

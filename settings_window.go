@@ -152,6 +152,19 @@ func runSettingsDialog(owner walk.Form, current Config) (bool, Config) {
 								)
 								return
 							}
+							// Persiste AGORA, antes de fechar o diálogo. Se o
+							// fechamento do modal encerrar a thread, a config já
+							// está gravada e o worker já recebeu a atualização.
+							if err := saveConfig(newCfg); err != nil {
+								walk.MsgBox(dlg, "GustaMenu",
+									"Erro ao salvar configuração:\n"+err.Error(),
+									walk.MsgBoxIconWarning)
+								return
+							}
+							setStartWithWindows(newCfg.StartWithWindows)
+							if appWorker != nil {
+								appWorker.UpdateConfig(newCfg)
+							}
 							result = newCfg
 							saved = true
 							dlg.Accept()

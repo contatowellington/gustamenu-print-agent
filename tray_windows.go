@@ -168,17 +168,11 @@ func buildTrayMenu() {
 
 func openSettingsDialog() {
 	current, _ := loadConfig()
-	ok, newCfg := runSettingsDialog(appWindow, current)
-	if !ok {
-		return
+	// A gravação (saveConfig + UpdateConfig + autostart) acontece DENTRO do
+	// diálogo, no clique em Salvar, antes do fechamento — garante persistir.
+	if ok, newCfg := runSettingsDialog(appWindow, current); ok {
+		log.Printf("Configuração salva. Impressora: %q", newCfg.Printer)
 	}
-	if err := saveConfig(newCfg); err != nil {
-		walk.MsgBox(appWindow, "GustaMenu", "Erro ao salvar configuração:\n"+err.Error(), walk.MsgBoxIconWarning)
-		return
-	}
-	setStartWithWindows(newCfg.StartWithWindows)
-	appWorker.UpdateConfig(newCfg)
-	log.Printf("Configuração salva. Impressora: %q", newCfg.Printer)
 }
 
 func printTestReceipt() {
