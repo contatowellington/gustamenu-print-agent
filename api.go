@@ -20,9 +20,29 @@ type PrintJob struct {
 	CreatedAt    string `json:"created_at"`
 }
 
+// AgentSettings são as configurações de alarme por estágio definidas pelo
+// lojista no painel (admin/impressao.php), entregues pela API a cada consulta.
+type AgentSettings struct {
+	AlarmePedidoCriado int    `json:"alarme_pedido_criado"`
+	AlarmePagamento    int    `json:"alarme_pagamento"`
+	ImprimirQuando     string `json:"imprimir_quando"`
+}
+
+// OrderEvent é um evento do ciclo do pedido: estágio "criado" (círculo
+// AMARELO) ou "pago" (círculo VERDE).
+type OrderEvent struct {
+	PedidoID     int    `json:"pedido_id"`
+	CodigoPedido string `json:"codigo_pedido"`
+	Estagio      string `json:"estagio"`
+}
+
 type jobsResponse struct {
 	OK   bool       `json:"ok"`
 	Jobs []PrintJob `json:"jobs"`
+	// Events/Settings ausentes (nil) indicam servidor antigo — o assistente
+	// cai no comportamento legado de alarmar pelos jobs da fila.
+	Events   []OrderEvent   `json:"events"`
+	Settings *AgentSettings `json:"settings"`
 }
 
 type reportRequest struct {
@@ -34,8 +54,9 @@ type reportRequest struct {
 
 var httpClient = &http.Client{Timeout: 15 * time.Second}
 
-// fetchJobs busca jobs pendentes na fila de impressão.
-func fetchJobs(cfg Config) ([]PrintJob, error) {
+// fetchJobs busca jobs pendentes na fila de impressão, junto com os eventos
+// do ciclo do pedido e as configurações de alarme da loja.
+func fetchJobs(cfg Config) (*jobsResponse, error) {
 	params := url.Values{}
 	params.Set("device_token", cfg.DeviceToken)
 	params.Set("limit", "10")
@@ -63,7 +84,7 @@ func fetchJobs(cfg Config) ([]PrintJob, error) {
 		return nil, fmt.Errorf("API retornou ok=false")
 	}
 
-	return result.Jobs, nil
+	return &result, nil
 }
 
 // reportJob notifica a API sobre o resultado da impressão.

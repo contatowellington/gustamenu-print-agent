@@ -5,7 +5,7 @@ import (
 )
 
 // Versão do Assistente de Impressão GustaMenu.
-const appVersion = "1.4.0"
+const appVersion = "1.5.0"
 
 func main() {
 	if !acquireSingleInstance() {

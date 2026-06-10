@@ -71,10 +71,26 @@ func runApp() {
 		}
 	}()
 
-	// Pedido novo → contador + alarme sonoro/visual.
+	// Pedido novo (modo legado, servidor sem eventos) → contador + alarme.
 	go func() {
 		for n := range appWorker.NewOrderCh() {
 			onNewOrder(n)
+		}
+	}()
+
+	// Estágio do pedido (AMARELO = criado, VERDE = pago) → cor + alarme.
+	go func() {
+		for ev := range appWorker.StageCh() {
+			onStageEvent(ev)
+		}
+	}()
+
+	// Saúde do assistente → badge do círculo (verde/vermelho/cinza).
+	go func() {
+		for h := range appWorker.HealthCh() {
+			if appWidget != nil {
+				appWidget.SetHealth(h)
+			}
 		}
 	}()
 
@@ -108,15 +124,40 @@ func runApp() {
 	appWindow.Run()
 }
 
-// onNewOrder dispara o alarme e o flash ao receber pedidos novos.
+// onNewOrder dispara o alarme e o flash ao receber pedidos novos (modo
+// legado, quando o servidor ainda não envia eventos de estágio).
 func onNewOrder(n int) {
 	cfg, _ := loadConfig()
 	if appWidget != nil {
 		appWidget.Show() // garante que o círculo reaparece se estava escondido
 		appWidget.AddCount(n)
+		appWidget.SetFlashLabels("PEDIDO!", "NOVO")
 		appWidget.StartFlash(cfg.NormalizedAlarmSeconds())
 	}
 	if cfg.AlarmEnabled {
+		appAlarm.Start(cfg.NormalizedAlarmSeconds())
+	}
+}
+
+// onStageEvent aplica o estágio do pedido no círculo: amarelo (criado) ou
+// verde (pago), com alarme sonoro conforme o lojista configurou no painel
+// (e respeitando o liga/desliga local do alarme).
+func onStageEvent(ev StageEvent) {
+	cfg, _ := loadConfig()
+	if appWidget != nil {
+		appWidget.Show()
+		if ev.Estagio == "criado" {
+			appWidget.AddCount(ev.Count)
+		}
+		appWidget.SetStage(ev.Estagio)
+		if ev.Estagio == "pago" {
+			appWidget.SetFlashLabels("PAGO!", "PEDIDO")
+		} else {
+			appWidget.SetFlashLabels("PEDIDO!", "NOVO")
+		}
+		appWidget.StartFlash(cfg.NormalizedAlarmSeconds())
+	}
+	if ev.Alarm && cfg.AlarmEnabled {
 		appAlarm.Start(cfg.NormalizedAlarmSeconds())
 	}
 }
