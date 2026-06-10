@@ -78,12 +78,17 @@ func runApp() {
 		}
 	}()
 
-	// Abre configuração automaticamente se não estiver configurado.
+	appWorker.Start()
+
+	// Abre a configuração automaticamente se não estiver configurado — mas só
+	// DEPOIS que o loop principal iniciar. Chamar o diálogo modal antes do
+	// Run() faz o app fechar ao clicar em Salvar (o fim do loop modal, sendo o
+	// único loop ativo, encerra a thread). Via Synchronize ele roda aninhado
+	// no Run() e, ao fechar, o app continua residente na bandeja.
 	if !cfg.IsValid() {
-		openSettingsDialog()
+		appWindow.Synchronize(openSettingsDialog)
 	}
 
-	appWorker.Start()
 	appWindow.Run()
 }
 
@@ -91,6 +96,7 @@ func runApp() {
 func onNewOrder(n int) {
 	cfg, _ := loadConfig()
 	if appWidget != nil {
+		appWidget.Show() // garante que o círculo reaparece se estava escondido
 		appWidget.AddCount(n)
 		appWidget.StartFlash(cfg.NormalizedAlarmSeconds())
 	}
@@ -106,6 +112,13 @@ func silenceAlarm() {
 	}
 	if appWidget != nil {
 		appWidget.StopFlash()
+	}
+}
+
+// showWidget traz o círculo de volta à tela (caso o usuário o tenha fechado).
+func showWidget() {
+	if appWidget != nil {
+		appWidget.Show()
 	}
 }
 
@@ -139,6 +152,7 @@ func buildTrayMenu() {
 	}
 
 	addAction("Configurar", openSettingsDialog)
+	addAction("Mostrar círculo", showWidget)
 	addAction("Imprimir teste", printTestReceipt)
 	addAction("Silenciar alarme", silenceAlarm)
 	addAction("Abrir log", openLogFile)

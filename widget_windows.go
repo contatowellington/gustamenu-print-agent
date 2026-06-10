@@ -178,7 +178,16 @@ func (w *FloatingWidget) wireInput() {
 	})
 
 	w.cw.MouseUp().Attach(func(x, y int, button walk.MouseButton) {
-		if button == walk.LeftButton && !w.dragged && w.onSilence != nil {
+		if button != walk.LeftButton || w.dragged {
+			return
+		}
+		// Clique no ✕ esconde o círculo (app segue na bandeja).
+		if pointInRect(x, y, w.closeButtonRect()) {
+			w.Hide()
+			return
+		}
+		// Clique no resto do círculo silencia o alarme.
+		if w.onSilence != nil {
 			w.onSilence()
 		}
 	})
@@ -240,8 +249,9 @@ func (w *FloatingWidget) paint(canvas *walk.Canvas, _ walk.Rectangle) error {
 		w.text(canvas, "PEDIDO!", w.fontCount, 0.42)
 		w.text(canvas, "NOVO", w.fontStat, 0.64)
 	} else {
-		w.text(canvas, "GustaMenu", w.fontTitle, 0.25)
-		w.text(canvas, strconv.Itoa(w.count), w.fontCount, 0.48)
+		w.text(canvas, "✕", w.fontTitle, 0.13) // botão fechar (esconde o círculo)
+		w.text(canvas, "GustaMenu", w.fontTitle, 0.27)
+		w.text(canvas, strconv.Itoa(w.count), w.fontCount, 0.49)
 		w.text(canvas, "pedidos", w.fontSmall, 0.70)
 		w.text(canvas, w.status, w.fontStat, 0.85)
 	}
@@ -257,6 +267,32 @@ func (w *FloatingWidget) text(c *walk.Canvas, s string, font *walk.Font, yFrac f
 	bounds := walk.Rectangle{X: 6, Y: y, Width: w.size - 12, Height: h}
 	_ = c.DrawTextPixels(s, font, colWhite, bounds,
 		walk.TextCenter|walk.TextVCenter|walk.TextSingleLine|walk.TextEndEllipsis)
+}
+
+// closeButtonRect é a área clicável do ✕, no topo do círculo.
+func (w *FloatingWidget) closeButtonRect() walk.Rectangle {
+	cy := int(float64(w.size) * 0.13)
+	half := 14
+	return walk.Rectangle{X: w.size/2 - half, Y: cy - half, Width: 2 * half, Height: 2 * half}
+}
+
+func pointInRect(x, y int, r walk.Rectangle) bool {
+	return x >= r.X && x < r.X+r.Width && y >= r.Y && y < r.Y+r.Height
+}
+
+// Hide esconde o círculo (o app continua rodando na bandeja).
+func (w *FloatingWidget) Hide() {
+	win.ShowWindow(w.mw.Handle(), win.SW_HIDE)
+}
+
+// Show mostra o círculo de volta, sempre-no-topo, sem roubar o foco.
+func (w *FloatingWidget) Show() {
+	w.mw.Synchronize(func() {
+		hwnd := w.mw.Handle()
+		win.ShowWindow(hwnd, win.SW_SHOWNOACTIVATE)
+		win.SetWindowPos(hwnd, win.HWND_TOPMOST, 0, 0, 0, 0,
+			win.SWP_NOMOVE|win.SWP_NOSIZE|win.SWP_NOACTIVATE|win.SWP_SHOWWINDOW)
+	})
 }
 
 // --- API pública (thread-safe via Synchronize) ---------------------------
