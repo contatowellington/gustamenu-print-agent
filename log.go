@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -21,6 +20,8 @@ func setupLog() {
 		return
 	}
 
-	log.SetOutput(io.MultiWriter(os.Stdout, f))
+	// App é GUI (-H windowsgui): os.Stdout é inválido, então logamos só no
+	// arquivo (senão o MultiWriter aborta no stdout e nada chega ao log).
+	log.SetOutput(f)
 	log.SetFlags(log.LstdFlags)
 }

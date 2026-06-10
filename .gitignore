@@ -1,4 +1,6 @@
 *.exe
-*.syso
 installer/Output/
 *.bak-*
+
+# rsrc.syso (manifesto Common-Controls + icone) e versionado de proposito:
+# garante que "go build" embute o manifesto sem precisar da ferramenta rsrc.
