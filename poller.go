@@ -16,22 +16,24 @@ type PrintWorker struct {
 	alerts    chan string
 	done      chan struct{}
 	once      sync.Once
-	// seen guarda os IDs de jobs já processados nesta sessão, para não
-	// recontar/reimprimir os mesmos pedidos a cada consulta (ex.: quando a
-	// impressão falha e o job continua pendente na fila). Acessado só pela
-	// goroutine de polling.
-	seen map[int]bool
+	// alerted: jobs que já contaram/alarmaram nesta sessão (não recontar).
+	alerted map[int]bool
+	// failedNotified: jobs cuja falha já foi avisada/reportada (não repetir o
+	// aviso a cada tentativa). A impressão continua sendo tentada até o job
+	// sair da fila — assim, ao corrigir a impressora, imprime sozinho.
+	failedNotified map[int]bool
 }
 
 // NewPrintWorker cria um novo worker com a configuração inicial.
 func NewPrintWorker(cfg Config) *PrintWorker {
 	return &PrintWorker{
-		cfg:       cfg,
-		status:    make(chan string, 16),
-		newOrders: make(chan int, 16),
-		alerts:    make(chan string, 8),
-		done:      make(chan struct{}),
-		seen:      make(map[int]bool),
+		cfg:            cfg,
+		status:         make(chan string, 16),
+		newOrders:      make(chan int, 16),
+		alerts:         make(chan string, 8),
+		done:           make(chan struct{}),
+		alerted:        make(map[int]bool),
+		failedNotified: make(map[int]bool),
 	}
 }
 
@@ -110,22 +112,26 @@ func (w *PrintWorker) doPoll(cfg Config) {
 		return
 	}
 
-	// Filtra só os pedidos inéditos nesta sessão. Jobs que continuam na fila
-	// (ex.: impressão falhou) não são recontados nem reimpressos a cada poll.
-	fresh := jobs[:0:0]
+	// Conta/alarma só os pedidos inéditos nesta sessão (de-dupe por ID).
+	novos := 0
 	for _, job := range jobs {
-		if !w.seen[job.ID] {
-			w.seen[job.ID] = true
-			fresh = append(fresh, job)
+		if !w.alerted[job.ID] {
+			w.alerted[job.ID] = true
+			novos++
 		}
 	}
-	if len(fresh) == 0 {
-		return
+	if novos > 0 {
+		w.publish(fmt.Sprintf("%d cupom(ns) recebido(s).", novos))
+		w.signalNewOrders(novos)
 	}
 
-	w.publish(fmt.Sprintf("%d cupom(ns) recebido(s).", len(fresh)))
-	w.signalNewOrders(len(fresh))
-	for _, job := range fresh {
+	// Tenta imprimir todos os jobs ainda na fila. Os que falham continuam na
+	// fila e reentram na próxima consulta — assim, ao corrigir a impressora
+	// (papel, conexão, etc.), imprimem sozinhos, sem reiniciar o assistente.
+	for _, job := range jobs {
+		if w.stopping() {
+			return
+		}
 		w.doJob(cfg, job)
 	}
 }
@@ -139,34 +145,46 @@ func (w *PrintWorker) doJob(cfg Config, job PrintJob) {
 		copies = 5
 	}
 
-	w.publish("Imprimindo pedido " + job.CodigoPedido + ".")
-	log.Printf("[job %d] imprimindo %s", job.ID, job.CodigoPedido)
-
 	var printErr error
 	for i := 0; i < copies; i++ {
 		if err := printJob(cfg, job); err != nil {
 			printErr = err
-			log.Printf("[job %d] cópia %d: %v", job.ID, i+1, err)
 			break
 		}
 	}
 
 	if printErr != nil {
-		w.publish("Impressora indisponível — verifique em Configurar.")
-		w.signalAlert("Não consegui imprimir o pedido " + job.CodigoPedido + ".\n" +
-			"A impressora pode estar desligada, desconectada ou não instalada.\n" +
-			"Abra Configurar e selecione a impressora correta.")
-		log.Printf("[job %d] falhou: %v", job.ID, printErr)
-		if err := reportJob(cfg, job.ID, "falhou", printErr.Error()); err != nil {
-			log.Printf("[job %d] report falhou: %v", job.ID, err)
+		log.Printf("[job %d] falha de impressao: %v", job.ID, printErr)
+		// Avisa o usuário e reporta a falha só UMA vez por job. A impressão
+		// continua sendo tentada nas próximas consultas (auto-retry).
+		if !w.failedNotified[job.ID] {
+			w.failedNotified[job.ID] = true
+			w.publish("Impressora indisponível — verifique em Configurar.")
+			w.signalAlert("Não consegui imprimir o pedido " + job.CodigoPedido + ".\n" +
+				"A impressora pode estar desligada, desconectada, sem papel ou não instalada.\n" +
+				"Assim que ela voltar, imprimo sozinho — ou abra Configurar para trocar a impressora.")
+			if err := reportJob(cfg, job.ID, "falhou", printErr.Error()); err != nil {
+				log.Printf("[job %d] report falhou: %v", job.ID, err)
+			}
 		}
 		return
 	}
 
+	// Sucesso — limpa o estado de falha e reporta.
+	delete(w.failedNotified, job.ID)
 	w.publish("Pedido " + job.CodigoPedido + " impresso.")
 	log.Printf("[job %d] impresso (%dx)", job.ID, copies)
 	if err := reportJob(cfg, job.ID, "impresso", ""); err != nil {
 		log.Printf("[job %d] report: %v", job.ID, err)
+	}
+}
+
+func (w *PrintWorker) stopping() bool {
+	select {
+	case <-w.done:
+		return true
+	default:
+		return false
 	}
 }
 
