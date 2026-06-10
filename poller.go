@@ -15,6 +15,11 @@ type PrintWorker struct {
 	newOrders chan int
 	done      chan struct{}
 	once      sync.Once
+	// seen guarda os IDs de jobs já processados nesta sessão, para não
+	// recontar/reimprimir os mesmos pedidos a cada consulta (ex.: quando a
+	// impressão falha e o job continua pendente na fila). Acessado só pela
+	// goroutine de polling.
+	seen map[int]bool
 }
 
 // NewPrintWorker cria um novo worker com a configuração inicial.
@@ -24,6 +29,7 @@ func NewPrintWorker(cfg Config) *PrintWorker {
 		status:    make(chan string, 16),
 		newOrders: make(chan int, 16),
 		done:      make(chan struct{}),
+		seen:      make(map[int]bool),
 	}
 }
 
@@ -96,9 +102,22 @@ func (w *PrintWorker) doPoll(cfg Config) {
 		return
 	}
 
-	w.publish(fmt.Sprintf("%d cupom(ns) recebido(s).", len(jobs)))
-	w.signalNewOrders(len(jobs))
+	// Filtra só os pedidos inéditos nesta sessão. Jobs que continuam na fila
+	// (ex.: impressão falhou) não são recontados nem reimpressos a cada poll.
+	fresh := jobs[:0:0]
 	for _, job := range jobs {
+		if !w.seen[job.ID] {
+			w.seen[job.ID] = true
+			fresh = append(fresh, job)
+		}
+	}
+	if len(fresh) == 0 {
+		return
+	}
+
+	w.publish(fmt.Sprintf("%d cupom(ns) recebido(s).", len(fresh)))
+	w.signalNewOrders(len(fresh))
+	for _, job := range fresh {
 		w.doJob(cfg, job)
 	}
 }
