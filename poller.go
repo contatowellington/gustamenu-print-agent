@@ -13,6 +13,7 @@ type PrintWorker struct {
 	cfg       Config
 	status    chan string
 	newOrders chan int
+	alerts    chan string
 	done      chan struct{}
 	once      sync.Once
 	// seen guarda os IDs de jobs já processados nesta sessão, para não
@@ -28,6 +29,7 @@ func NewPrintWorker(cfg Config) *PrintWorker {
 		cfg:       cfg,
 		status:    make(chan string, 16),
 		newOrders: make(chan int, 16),
+		alerts:    make(chan string, 8),
 		done:      make(chan struct{}),
 		seen:      make(map[int]bool),
 	}
@@ -49,6 +51,12 @@ func (w *PrintWorker) StatusCh() <-chan string {
 // com a quantidade recebida em cada consulta (read-only).
 func (w *PrintWorker) NewOrderCh() <-chan int {
 	return w.newOrders
+}
+
+// AlertCh retorna o canal de alertas para o usuário (ex.: falha de
+// impressora), exibidos como notificação na bandeja (read-only).
+func (w *PrintWorker) AlertCh() <-chan string {
+	return w.alerts
 }
 
 // Start inicia o loop de polling (idempotente).
@@ -144,7 +152,10 @@ func (w *PrintWorker) doJob(cfg Config, job PrintJob) {
 	}
 
 	if printErr != nil {
-		w.publish("Falha ao imprimir " + job.CodigoPedido + ".")
+		w.publish("Impressora indisponível — verifique em Configurar.")
+		w.signalAlert("Não consegui imprimir o pedido " + job.CodigoPedido + ".\n" +
+			"A impressora pode estar desligada, desconectada ou não instalada.\n" +
+			"Abra Configurar e selecione a impressora correta.")
 		log.Printf("[job %d] falhou: %v", job.ID, printErr)
 		if err := reportJob(cfg, job.ID, "falhou", printErr.Error()); err != nil {
 			log.Printf("[job %d] report falhou: %v", job.ID, err)
@@ -170,6 +181,13 @@ func (w *PrintWorker) publish(status string) {
 func (w *PrintWorker) signalNewOrders(n int) {
 	select {
 	case w.newOrders <- n:
+	default:
+	}
+}
+
+func (w *PrintWorker) signalAlert(msg string) {
+	select {
+	case w.alerts <- msg:
 	default:
 	}
 }

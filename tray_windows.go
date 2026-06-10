@@ -78,6 +78,22 @@ func runApp() {
 		}
 	}()
 
+	// Alertas (ex.: falha de impressora) → notificação (balão) na bandeja.
+	// Throttle de 60s para não repetir o aviso a cada pedido na fila.
+	go func() {
+		var last time.Time
+		for msg := range appWorker.AlertCh() {
+			if time.Since(last) < 60*time.Second {
+				continue
+			}
+			last = time.Now()
+			m := msg
+			appWindow.Synchronize(func() {
+				_ = appTray.ShowWarning("GustaMenu — impressão", m)
+			})
+		}
+	}()
+
 	appWorker.Start()
 
 	// Abre a configuração automaticamente se não estiver configurado — mas só
