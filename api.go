@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// PrintJob representa um job retornado pela API BoraPede.
+// PrintJob representa um job retornado pela API GustaMenu.
 type PrintJob struct {
 	ID           int    `json:"id"`
 	CodigoPedido string `json:"codigo_pedido"`

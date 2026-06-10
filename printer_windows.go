@@ -204,7 +204,7 @@ func rawPrint(printerName string, data []byte) error {
 	}
 	defer procClosePrinter.Call(hPrinter)
 
-	docName, _ := syscall.UTF16PtrFromString("BoraPede Cupom")
+	docName, _ := syscall.UTF16PtrFromString("GustaMenu Cupom")
 	rawType, _ := syscall.UTF16PtrFromString("RAW")
 	di := docInfo1W{
 		pDocName:  docName,
