@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 )
@@ -96,6 +97,7 @@ func loadConfig() (Config, error) {
 		cfg.AlarmSeconds = defaultConfig().AlarmSeconds
 	}
 
+	log.Printf("[config] loadConfig token_len=%d endpoint=%q", len(cfg.DeviceToken), cfg.APIEndpoint)
 	return cfg, nil
 }
 
@@ -108,5 +110,8 @@ func saveConfig(cfg Config) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(configPath(), data, 0600)
+	err = os.WriteFile(configPath(), data, 0600)
+	log.Printf("[config] saveConfig token_len=%d printer=%q path=%q err=%v",
+		len(cfg.DeviceToken), cfg.Printer, configPath(), err)
+	return err
 }

@@ -3,6 +3,8 @@
 package main
 
 import (
+	"log"
+
 	"github.com/lxn/walk"
 	. "github.com/lxn/walk/declarative"
 )
@@ -139,6 +141,8 @@ func runSettingsDialog(owner walk.Form, current Config) (bool, Config) {
 								AlarmEnabled:     alarmCheck.Checked(),
 								AlarmSeconds:     int(alarmSecondsEdit.Value()),
 							}
+							log.Printf("[settings] Salvar clicado: token_len=%d endpoint=%q printer=%q valid=%v",
+								len(newCfg.DeviceToken), newCfg.APIEndpoint, newCfg.Printer, newCfg.IsValid())
 							if !newCfg.IsValid() {
 								walk.MsgBox(
 									dlg,
