@@ -1,5 +1,5 @@
 #define MyAppName    "GustaMenu Assistente de Impressao"
-#define MyAppVersion "1.5.0"
+#define MyAppVersion "1.6.0"
 #define MyAppPublisher "GustaMenu"
 #define MyAppExeName "GustaMenu.PrintAgent.exe"
 

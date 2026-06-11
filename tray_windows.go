@@ -141,8 +141,20 @@ func onNewOrder(n int) {
 
 // onStageEvent aplica o estágio do pedido no círculo: amarelo (criado) ou
 // verde (pago), com alarme sonoro conforme o lojista configurou no painel
-// (e respeitando o liga/desliga local do alarme).
+// (e respeitando o liga/desliga local do alarme). Padrão iFood: o alarme de
+// estágio toca SEM limite de tempo, até o lojista agir — clique no círculo,
+// menu Silenciar ou aceite do pedido no painel (estágio "aceito").
 func onStageEvent(ev StageEvent) {
+	if ev.Estagio == "aceito" {
+		// Pedido aceito no painel: a atenção já foi dada — silencia o
+		// alarme/flash e devolve o círculo ao repouso.
+		silenceAlarm()
+		if appWidget != nil {
+			appWidget.SetStage("")
+		}
+		return
+	}
+
 	cfg, _ := loadConfig()
 	if appWidget != nil {
 		appWidget.Show()
@@ -155,10 +167,10 @@ func onStageEvent(ev StageEvent) {
 		} else {
 			appWidget.SetFlashLabels("PEDIDO!", "NOVO")
 		}
-		appWidget.StartFlash(cfg.NormalizedAlarmSeconds())
+		appWidget.StartFlash(0)
 	}
 	if ev.Alarm && cfg.AlarmEnabled {
-		appAlarm.Start(cfg.NormalizedAlarmSeconds())
+		appAlarm.Start(0)
 	}
 }
 

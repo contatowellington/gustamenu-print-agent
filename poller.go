@@ -177,9 +177,12 @@ func (w *PrintWorker) doPoll(cfg Config) {
 }
 
 // handleEvents processa os eventos do ciclo do pedido (de-dupe por
-// pedido_id:estagio) e emite os estágios AMARELO/VERDE para a UI.
+// pedido_id:estagio) e emite os estágios AMARELO/VERDE para a UI. O estágio
+// "aceito" silencia o alarme (padrão iFood: toca até a ação do lojista) —
+// mas só quando não chegou pedido/pagamento novo no mesmo lote, senão o
+// aceite de um pedido antigo calaria o alarme do pedido recém-chegado.
 func (w *PrintWorker) handleEvents(s *AgentSettings, events []OrderEvent) {
-	criados, pagos := 0, 0
+	criados, pagos, aceitos := 0, 0, 0
 	for _, ev := range events {
 		key := fmt.Sprintf("%d:%s", ev.PedidoID, ev.Estagio)
 		if w.seenEvents[key] {
@@ -191,6 +194,8 @@ func (w *PrintWorker) handleEvents(s *AgentSettings, events []OrderEvent) {
 			criados++
 		case "pago":
 			pagos++
+		case "aceito":
+			aceitos++
 		}
 	}
 
@@ -201,6 +206,9 @@ func (w *PrintWorker) handleEvents(s *AgentSettings, events []OrderEvent) {
 	if pagos > 0 {
 		w.publish(fmt.Sprintf("%d pagamento(s) confirmado(s).", pagos))
 		w.signalStage(StageEvent{Estagio: "pago", Count: pagos, Alarm: s.AlarmePagamento == 1})
+	}
+	if aceitos > 0 && criados == 0 && pagos == 0 {
+		w.signalStage(StageEvent{Estagio: "aceito", Count: aceitos})
 	}
 }
 
